@@ -503,13 +503,14 @@ class CausalLMBatch(Batch):
 
         bucket_size = max_input_length
         left_padding = max_input_length - input_len
-        if input_len < max_input_length and PAD_SEQUENCE_TO_MULTIPLE_OF != 0:
+        if input_len <= max_input_length and PAD_SEQUENCE_TO_MULTIPLE_OF != 0:
             assert PAD_SEQUENCE_TO_MULTIPLE_OF <= max_input_length, "PAD_SEQUENCE_TO_MULTIPLE_OF cannot be higher than max_input_length"
             rounded_seq_len = round_up(input_len + 1, PAD_SEQUENCE_TO_MULTIPLE_OF)
-            if rounded_seq_len <= max_input_length:
-                bucket_size = rounded_seq_len - 1
+            if rounded_seq_len >= max_input_length:
+                bucket_size = max_input_length + 1 # size of the last bucket to include the exact max_input_length
             else:
-                bucket_size = max_input_length - 1
+                bucket_size = rounded_seq_len - 1
+
             left_padding = bucket_size - input_len
 
         input_ids = tokenized_inputs["input_ids"]
@@ -527,7 +528,11 @@ class CausalLMBatch(Batch):
         ).T.split(1, dim=1)
 
         # New input length after left padding
-        input_len = bucket_size
+        if bucket_size > max_input_length: # for the last bucket: bucket_size = max_input_length + 1 token for output placeholder
+            input_len = bucket_size - 1
+        else:
+            input_len = bucket_size
+
         for r in requests:
             r.input_length = input_len
             r.prefix_offset = input_len - 5

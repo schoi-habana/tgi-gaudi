@@ -142,6 +142,12 @@ impl Client {
             }
         }
 
+        // Increase the last item of seq_lengths by 1
+        // to ensure the exact max_input_length is included during warmup
+        if let Some(last) = seq_lengths.last_mut() {
+            *last += 1;
+        }
+
         // execute batch for each combination of batch size and sequence length
         let mut shapes: Vec<(u32, u32)> = Vec::with_capacity(prefill_batch_sizes.len() * seq_lengths.len());
         for batch_size in &prefill_batch_sizes {
